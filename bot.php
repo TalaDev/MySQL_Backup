@@ -8,6 +8,8 @@ $dbname = "dbname";
 // ربات تلگرام توکن
 $bot_token = "YOUR_BOT_TOKEN";
 $chat_id = "YOUR_CHAT_ID";
+
+
 error_reporting(0);
 backup_database_and_send_to_telegram();
 
@@ -55,10 +57,10 @@ function send_backup_to_telegram($bot_token, $chat_id, $backup_file) {
     $error = curl_error($curl);
 
     if($error) {
-        echo "Error: " . $error;
-    } else {
-        echo "File sent: \n" . $response;
-    }
+    echo "Error: " . $error;
+} else {
+    echo "بکاپ با موفقیت ارسال شد.";
+}
 
     unlink($filepath);
     
