@@ -81,6 +81,10 @@ function send_backup_to_telegram($bot_token, $chat_id, $backup_file) {
     } else {
         echo "File sent: \n" . $response;
     }
+
+    // حذف فایل بکاپ از هاست پس از ارسال به تلگرام
+    unlink($filepath);
+    
     curl_close($curl);
 }
 ?>
