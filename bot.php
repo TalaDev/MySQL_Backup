@@ -8,15 +8,17 @@ $dbname = "dbname";
 // ربات تلگرام توکن
 $bot_token = "YOUR_BOT_TOKEN";
 $chat_id = "YOUR_CHAT_ID";
+<?php
 
-// ایجاد اتصال
+// اتصال به پایگاه داده
 $conn = new mysqli($servername, $username, $password, $dbname);
+
 // بررسی اتصال
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// زمان اجرای این فایل بکاپ خودکار را تنظیم کنید (به ثانیه)
+// تنظیم فاصله زمانی بکاپ (ثانیه)
 $backup_interval = 300;
 $last_backup = 0;
 
@@ -28,14 +30,22 @@ while (true) {
         $command = "mysqldump --user={$username} --password={$password} --host={$servername} {$dbname} > {$backup_file}";
         system($command);
         
-        // ارسال فایل به تلگرام
-        send_backup_to_telegram($bot_token, $chat_id, $backup_file);
+        // فشرده‌سازی فایل SQL به ZIP
+        $zip_file = 'backup_' . time() . '.zip';
+        $zip = new ZipArchive();
+        $zip->open($zip_file, ZipArchive::CREATE);
+        $zip->addFile($backup_file);
+        $zip->close();
+        
+        // ارسال فایل فشرده (ZIP) به تلگرام
+        send_backup_to_telegram($bot_token, $chat_id, $zip_file);
 
         // به روزرسانی شمارنده بکاپ
         $last_backup = time();
 
-        // حذف فایل بکاپ
+        // حذف فایل‌های بکاپ و ZIP
         unlink($backup_file);
+        unlink($zip_file);
     }
 
     sleep(1);
