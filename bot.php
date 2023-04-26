@@ -8,48 +8,28 @@ $dbname = "dbname";
 // ربات تلگرام توکن
 $bot_token = "YOUR_BOT_TOKEN";
 $chat_id = "YOUR_CHAT_ID";
-
 error_reporting(0);
+backup_database_and_send_to_telegram();
 
-// بررسی اتصال
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+function backup_database_and_send_to_telegram() {
+    global $username, $password, $servername, $dbname, $bot_token, $chat_id;
+
+    $backup_file = "backup_" . time() . ".sql";
+    $command = "mysqldump --user={$username} --password={$password} --host={$servername} {$dbname} > {$backup_file}";
+    system($command);
+
+    $zip_file = 'backup_' . time() . '.zip';
+    $zip = new ZipArchive();
+    $zip->open($zip_file, ZipArchive::CREATE);
+    $zip->addFile($backup_file);
+    $zip->close();
+
+    send_backup_to_telegram($bot_token, $chat_id, $zip_file);
+
+    unlink($backup_file);
+    unlink($zip_file);
 }
 
-// تنظیم فاصله زمانی بکاپ (ثانیه)
-$backup_interval = 300;
-$last_backup = 0;
-
-// حلقه نامتناهی برای بکاپ هر 5 دقیقه
-while (true) {
-
-    if (time() - $last_backup >= $backup_interval) {
-        $backup_file = "backup_" . time() . ".sql";
-        $command = "mysqldump --user={$username} --password={$password} --host={$servername} {$dbname} > {$backup_file}";
-        system($command);
-        
-        // فشرده‌سازی فایل SQL به ZIP
-        $zip_file = 'backup_' . time() . '.zip';
-        $zip = new ZipArchive();
-        $zip->open($zip_file, ZipArchive::CREATE);
-        $zip->addFile($backup_file);
-        $zip->close();
-        
-        // ارسال فایل فشرده (ZIP) به تلگرام
-        send_backup_to_telegram($bot_token, $chat_id, $zip_file);
-
-        // به روزرسانی شمارنده بکاپ
-        $last_backup = time();
-
-        // حذف فایل‌های بکاپ و ZIP
-        unlink($backup_file);
-        unlink($zip_file);
-    }
-
-    sleep(1);
-}
-
-// تابع برای ارسال فایل بکاپ به کانال تلگرام
 function send_backup_to_telegram($bot_token, $chat_id, $backup_file) {
     $api_url = "https://api.telegram.org/bot" . $bot_token . "/sendDocument";
     $filepath = realpath($backup_file);
@@ -80,7 +60,6 @@ function send_backup_to_telegram($bot_token, $chat_id, $backup_file) {
         echo "File sent: \n" . $response;
     }
 
-    // حذف فایل بکاپ از هاست پس از ارسال به تلگرام
     unlink($filepath);
     
     curl_close($curl);
