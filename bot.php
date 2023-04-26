@@ -10,8 +10,7 @@ $bot_token = "YOUR_BOT_TOKEN";
 $chat_id = "YOUR_CHAT_ID";
 <?php
 
-// اتصال به پایگاه داده
-$conn = new mysqli($servername, $username, $password, $dbname);
+error_reporting(0);
 
 // بررسی اتصال
 if ($conn->connect_error) {
