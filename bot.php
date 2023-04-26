@@ -8,7 +8,6 @@ $dbname = "dbname";
 // ربات تلگرام توکن
 $bot_token = "YOUR_BOT_TOKEN";
 $chat_id = "YOUR_CHAT_ID";
-<?php
 
 error_reporting(0);
 
