@@ -21,13 +21,11 @@ function backup_db($servername, $username, $password, $dbname, $bot_token, $chat
   $sql_script = '';
   foreach ($table_array as $table_name) {
     
-    // افزودن ساختار جدول به SQL script
     $structure_res = mysqli_query($conn, "SHOW CREATE TABLE $table_name");
     $structure_row = mysqli_fetch_row($structure_res);
     $sql_script .= "\n--\n-- Table structure for `$table_name`\n--\n";
     $sql_script .= "DROP TABLE IF EXISTS $table_name;\n";
     $sql_script .= $structure_row[1].";\n\n";
-    // پایان افزودن ساختار جدول 
 
     $offset = 0;
     $count = 0;
