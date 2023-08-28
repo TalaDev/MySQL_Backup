@@ -1,69 +1,76 @@
 <?php
-// اطلاعات اتصال به پایگاه داده MySQL
+// اطلاعات مربوط به دیتابیس
 $servername = "localhost";
 $username = "username";
 $password = "password";
 $dbname = "dbname";
 
-// ربات تلگرام توکن
+// اطلاعات مربوط به تلگرام
 $bot_token = "YOUR_BOT_TOKEN";
 $chat_id = "YOUR_CHAT_ID";
 
+function backup_db($servername, $username, $password, $dbname, $bot_token, $chat_id) {
+  $conn = mysqli_connect($servername, $username, $password, $dbname);
+  mysqli_set_charset($conn, "utf8"); 
 
-error_reporting(0);
-backup_database_and_send_to_telegram();
-
-function backup_database_and_send_to_telegram() {
-    global $username, $password, $servername, $dbname, $bot_token, $chat_id;
-
-    $backup_file = "backup_" . time() . ".sql";
-    $command = "mysqldump --user={$username} --password={$password} --host={$servername} {$dbname} > {$backup_file}";
-    system($command);
-
-    $zip_file = 'backup_' . time() . '.zip';
-    $zip = new ZipArchive();
-    $zip->open($zip_file, ZipArchive::CREATE);
-    $zip->addFile($backup_file);
-    $zip->close();
-
-    send_backup_to_telegram($bot_token, $chat_id, $zip_file);
-
-    unlink($backup_file);
-    unlink($zip_file);
-}
-
-function send_backup_to_telegram($bot_token, $chat_id, $backup_file) {
-    $api_url = "https://api.telegram.org/bot" . $bot_token . "/sendDocument";
-    $filepath = realpath($backup_file);
+  $tables = mysqli_query($conn, 'SHOW TABLES');
+  while($row = mysqli_fetch_row($tables)) {
+    $table_array[] = $row[0];
+  }
+  
+  $sql_script = '';
+  foreach ($table_array as $table_name) {
     
-    $curl = curl_init();
+    // افزودن ساختار جدول به SQL script
+    $structure_res = mysqli_query($conn, "SHOW CREATE TABLE $table_name");
+    $structure_row = mysqli_fetch_row($structure_res);
+    $sql_script .= "\n--\n-- Table structure for `$table_name`\n--\n";
+    $sql_script .= "DROP TABLE IF EXISTS $table_name;\n";
+    $sql_script .= $structure_row[1].";\n\n";
+    // پایان افزودن ساختار جدول 
 
-    $post_fields = array(
-        'chat_id' => $chat_id,
-        'document' => new CURLFile(realpath($filepath))
-    );
+    $offset = 0;
+    $count = 0;
+    do {
+        $table_data = mysqli_query($conn, "SELECT * FROM $table_name LIMIT $offset, 100");
+        $count = mysqli_num_rows($table_data);
+        $offset += 100;
+        
+        while($row = mysqli_fetch_assoc($table_data)) {
+            $row_escaped = array();
+            foreach ($row as $key => $value) {
+                $row_escaped[$key] = "'" . mysqli_real_escape_string($conn, $value) . "'";
+            }
+            $insert_row = implode(",", $row_escaped);
+            $sql_script .= "INSERT INTO $table_name VALUES ($insert_row);\n";
+        }
+    } while ($count > 0);
 
-    curl_setopt_array($curl, [
-        CURLOPT_URL => $api_url,
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => array(
-            "Content-Type:multipart/form-data"
-        ),
-        CURLOPT_POSTFIELDS => $post_fields
-    ]);
+  }
+  
+  $backup_file = "db_backup_" . date("Ymd") . ".sql";
+  file_put_contents($backup_file, $sql_script);
 
-    $response = curl_exec($curl);
-    $error = curl_error($curl);
+  $zip = new ZipArchive();
+  $zip_file = "db_backup_" . date("Ymd") . ".zip"; 
+  $zip->open($zip_file, ZipArchive::CREATE);
+  $zip->addFile($backup_file);
+  $zip->close();
 
-    if($error) {
-    echo "Error: " . $error;
-} else {
-    echo "بکاپ با موفقیت ارسال شد.";
+  $url = "https://api.telegram.org/bot$bot_token/sendDocument";
+  $data = array('chat_id' => $chat_id, 'document' => new CURLFile(realpath($zip_file)));
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_POST, 1); 
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  $result = curl_exec($ch);
+  curl_close($ch);
+
+  unlink($backup_file);
+  unlink($zip_file);
 }
 
-    unlink($filepath);
-    
-    curl_close($curl);
-}
+backup_db($servername, $username, $password, $dbname, $bot_token, $chat_id);
 ?>
